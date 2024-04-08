@@ -3,7 +3,7 @@ from typing import NamedTuple
 
 import pandas as pd
 import torch
-from biopandas.constants import protein_letters_3to1_extended
+from rpp_dock.data.constants import *
 from biopandas.pdb import PandasPdb
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
@@ -23,11 +23,19 @@ class ReceptorLigandDataset(Dataset):
         # NOTE: data_csv contains description of receptor and ligand pairs,
         # e.g. a pair of PDB file names
 
-        # TODO: parse all examples from
         self._data: list[ReceptorLigandPair] = []
+        df = pd.read_csv(data_csv)
+
+        for path in df['path']:
+            ligand = parse_pdb(pdbdir + path + '_l_b.pdb')
+            receptor = parse_pdb(pdbdir + path + '_r_b.pdb')
+            self._data.append(ReceptorLigandPair(receptor, ligand))
 
     def __getitem__(self, index: int) -> ReceptorLigandPair:
-        ...
+        if index < len(self._data):
+            return self._data[index]
+        else:
+            raise IndexError('Index out of range')
 
     def __len__(self) -> int:
         return len(self._data)
@@ -45,11 +53,35 @@ def parse_pdb(pdb: Path) -> Data:
 
     coordinates = torch.tensor(
         atoms_df[["x_coord", "y_coord", "z_coord"]][
-            atoms_df["atom_name"].isin(["CA"])
+            atoms_df["atom_name"].isin(["CA", "C", "N"])
         ].values
     )
-    # TODO: extract residue names and encode to integer indices (e.g. ALA = 0, CYS = 1 etc)
+
+    residue_names = atoms_df["residue_name"]
+    residue_set = list(set(residue_names))
+    residue_names = [residue_set.index(res_name) for res_name in residue_names]
+    
     # TODO: extract residue orientations from CA-C-N atoms
+    # n_c, ca_c, c_c = 0, 0, 0
+
+    # n_coordinates = atoms_df[["x_coord", "y_coord", "z_coord"]][
+    #         atoms_df["atom_name"].isin(["N"])
+    #     ].values
+    
+    # ca_coordinates = atoms_df[["x_coord", "y_coord", "z_coord"]][
+    #         atoms_df["atom_name"].isin(["CA"])
+    #     ].values
+    
+    # c_coordinates = 
+
+
+    # u_i = (n_c - ca_c) / np.linalg.norm(n_c - ca_c)
+    # t_i = (c_c - ca_c) / np.linalg.norm(c_c - ca_c)
+    # n_i = np.cross(u_i, t_i) / np.linalg.norm(np.cross(u_i, t_i))
+    # v_i = np.cross(n_i, u_i)
+
+    
+    # edge_attr = ...
 
     # create KNN graph from euclidean distances
     edge_index = knn_graph(x=coordinates, k=10)
@@ -57,4 +89,4 @@ def parse_pdb(pdb: Path) -> Data:
     # reverse edges to ensure our graph is treated as undirected
     edge_index = to_undirected(edge_index)
 
-    return Data(pos=coordinates, edge_index=edge_index)
+    return Data(pos=coordinates, edge_index=edge_index, x=residue_names)

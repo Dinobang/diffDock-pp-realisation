@@ -3,6 +3,7 @@ import itertools
 import plotly.graph_objects as go
 import torch
 from torch_geometric.data import Data
+import random
 
 
 class PlotlyVis:
@@ -45,16 +46,25 @@ class PlotlyVis:
     @staticmethod
     def draw_nodes(graph: Data) -> go.Scatter3d:
         x, y, z = graph.pos.T
+        residue_names = graph.x
+
+
+        residue_colors = {}
+        for res in residue_names:
+            if res not in residue_colors:
+                residue_colors[res] = f'rgb({random.randint(0, 255)}, {random.randint(0, 255)}, {random.randint(0, 255)})'
+
+
         nodes = go.Scatter3d(
             x=x,
             y=y,
             z=z,
             mode="markers",
             hoverinfo="text",
-            # text=residue_names,  # TODO: add residue names for debugging
+            text=residue_names,  
             marker=dict(
-                size=4,
-                # color=residue_colors,  # TODO: add color for all residues
+                size=5,
+                color=[residue_colors[res] for res in residue_names],  
                 cmin=0,
                 cmax=1,
                 opacity=0.8,
@@ -68,7 +78,7 @@ class PlotlyVis:
         add_annotation: bool = False,
         color: str = "lightgray",
         dash: str = "dot",
-        width: int = 1,
+        width: int = 1.2,
     ) -> go.Scatter3d:
         edges = graph.edge_index.T
         coordinates = graph.pos
