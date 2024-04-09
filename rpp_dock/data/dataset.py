@@ -3,6 +3,7 @@ from typing import NamedTuple
 
 import pandas as pd
 import torch
+from tqdm import tqdm
 from rpp_dock.data.constants import *
 from biopandas.pdb import PandasPdb
 from torch.utils.data import Dataset
@@ -53,7 +54,7 @@ def parse_pdb(pdb: Path) -> Data:
 
     coordinates = torch.tensor(
         atoms_df[["x_coord", "y_coord", "z_coord"]][
-            atoms_df["atom_name"].isin(["CA", "C", "N"])
+            atoms_df["atom_name"].isin(["CA"])
         ].values
     )
 
@@ -61,27 +62,21 @@ def parse_pdb(pdb: Path) -> Data:
     residue_set = list(set(residue_names))
     residue_names = [residue_set.index(res_name) for res_name in residue_names]
     
-    # TODO: extract residue orientations from CA-C-N atoms
-    # n_c, ca_c, c_c = 0, 0, 0
+    # extract residue orientations from CA-C-N atoms
 
-    # n_coordinates = atoms_df[["x_coord", "y_coord", "z_coord"]][
-    #         atoms_df["atom_name"].isin(["N"])
-    #     ].values
+    n_coordinates = torch.tensor(atoms_df[["x_coord", "y_coord", "z_coord"]][
+            atoms_df["atom_name"].isin(["N"])
+        ].values)
     
-    # ca_coordinates = atoms_df[["x_coord", "y_coord", "z_coord"]][
-    #         atoms_df["atom_name"].isin(["CA"])
-    #     ].values
+    ca_coordinates = torch.tensor(atoms_df[["x_coord", "y_coord", "z_coord"]][
+            atoms_df["atom_name"].isin(["CA"])
+        ].values)
     
-    # c_coordinates = 
-
-
-    # u_i = (n_c - ca_c) / np.linalg.norm(n_c - ca_c)
-    # t_i = (c_c - ca_c) / np.linalg.norm(c_c - ca_c)
-    # n_i = np.cross(u_i, t_i) / np.linalg.norm(np.cross(u_i, t_i))
-    # v_i = np.cross(n_i, u_i)
-
+    c_coordinates = torch.tensor(atoms_df[["x_coord", "y_coord", "z_coord"]][
+            atoms_df["atom_name"].isin(["C"])
+        ].values)
     
-    # edge_attr = ...
+    assert len(n_coordinates) == len(ca_coordinates) == len(c_coordinates)
 
     # create KNN graph from euclidean distances
     edge_index = knn_graph(x=coordinates, k=10)
@@ -89,4 +84,34 @@ def parse_pdb(pdb: Path) -> Data:
     # reverse edges to ensure our graph is treated as undirected
     edge_index = to_undirected(edge_index)
 
-    return Data(pos=coordinates, edge_index=edge_index, x=residue_names)
+    u_i = (n_coordinates - ca_coordinates) / torch.linalg.norm(n_coordinates - ca_coordinates)
+    t_i = (c_coordinates - ca_coordinates) / torch.linalg.norm(c_coordinates - ca_coordinates)
+    n_i = torch.cross(u_i, t_i) / torch.linalg.norm(torch.cross(u_i, t_i))
+    v_i = torch.cross(n_i, u_i)
+
+    edge_attr = []
+
+    for i in tqdm(range(len(edge_index[0]))):
+        src, dst = edge_index[0][i], edge_index[1][i]
+        src_u_i, dst_u_i = u_i[src], u_i[dst]
+        src_v_i, dst_v_i = v_i[src, :], v_i[dst]
+        src_n_i, dst_n_i = n_i[src, :], n_i[dst]
+
+        T1 = torch.stack(
+                          (torch.cat((src_n_i, ca_coordinates[src][0].unsqueeze(dim=0))), 
+                          torch.cat((src_u_i, ca_coordinates[src][1].unsqueeze(dim=0))),
+                          torch.cat((src_v_i, ca_coordinates[src][2].unsqueeze(dim=0))), 
+                          torch.tensor([0, 0, 0, 1]))
+                        )
+        
+        T2 = torch.stack(
+                          (torch.cat((dst_n_i, ca_coordinates[dst][0].unsqueeze(dim=0))), 
+                          torch.cat((dst_u_i, ca_coordinates[dst][1].unsqueeze(dim=0))),
+                          torch.cat((dst_v_i, ca_coordinates[dst][2].unsqueeze(dim=0))), 
+                          torch.tensor([0, 0, 0, 1]))
+                        )
+    
+        edge_attr.append(torch.linalg.inv(T1) @ T2)
+
+
+    return Data(pos=coordinates, edge_index=edge_index, x=residue_names, edge_attr=edge_attr)
