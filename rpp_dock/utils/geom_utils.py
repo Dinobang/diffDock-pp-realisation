@@ -1,6 +1,9 @@
 import torch
 from tqdm import tqdm
 import math
+import numpy as np
+
+MAX_EPS, MIN_EPS, N_EPS = 2, 0.01, 2000
 
 def compute_orientation_vectors(n_coordinates, ca_coordinates, c_coordinates, edge_index):
 
@@ -104,3 +107,53 @@ def axis_angle_to_matrix(axis_angle):
 
     """
     return quaternion_to_matrix(axis_angle_to_quaternion(axis_angle))
+
+
+
+
+# NOTE: generate axis by https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
+
+def _density(
+    expansion, omega, marginal=True
+):  # NOTE: if marginal, density over [0, pi], else over SO(3)
+    if marginal:
+        return expansion * (1 - np.cos(omega)) / np.pi
+    else:
+        return (
+            expansion / (8 * np.pi**2)
+        )  
+    
+
+def _expansion(omega, eps, L=2000):
+    p = 0
+    for l in range(L):
+        p += (
+            (2 * l + 1)
+            * np.exp(-l * (l + 1) * eps**2)
+            * np.sin(omega * (l + 1 / 2))
+            / np.sin(omega / 2)
+        )
+    return p
+
+eps_array = 10 ** np.linspace(np.log10(MIN_EPS), np.log10(MAX_EPS), 1000) 
+omegas_array = np.linspace(0, np.pi, 2000 + 1)[1:]  
+exp_vals = np.asarray([_expansion(omegas_array, eps) for eps in eps_array])
+pdf_vals = np.asarray([_density(exp, omegas_array, marginal=True) for exp in exp_vals])
+cdf_vals = np.asarray([pdf.cumsum() / N_EPS * np.pi for pdf in pdf_vals])
+
+def generate_axis(eps):
+    eps_idx = (
+        (np.log10(eps) - np.log10(MIN_EPS))
+        / (np.log10(MAX_EPS) - np.log10(MIN_EPS))
+        * 1000
+    )
+    eps_idx = np.clip(np.around(eps_idx).astype(int), a_min=0, a_max=1000 - 1)
+    x = np.random.rand()
+
+    return np.interp(x, cdf_vals[eps_idx], omegas_array)
+
+
+def generate_angle(eps):
+    x = np.random.randn(3)
+    x /= np.linalg.norm(x)
+    return x * generate_axis(eps)
