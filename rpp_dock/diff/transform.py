@@ -1,19 +1,26 @@
 # добавление шума к положению белка-рецептора (поворот + перенос)
 import numpy as np
 import torch
+import torch.nn as 
+from torch_geometric.transforms import BaseTransform
 from rpp_dock.utils.geom_utils import axis_angle_to_matrix, generate_angle
 
-class NoiseTransform:
+class NoiseTransform(BaseTransform):
     
     def __init__(self, args):
+
         self.noise_maker = Noise(args)
+        self.noise_sceduler = NoiseSchedule()
 
     def __call__(self, protein):
         upd_protein = self.apply_noise(protein)
         return upd_protein
     
     def apply_noise(self, protein, t_update=True, rot_update=True):
-        t_param, rot_param = self.noise_maker()
+        t_param, rot_param, time = self.noise_maker()
+
+        self.noise_sceduler.set_time(protein.num_nodes)
+        
         if t_update: 
             tr_vec = torch.normal(mean=0, std=t_param, size=(1, 3))
         if rot_update: 
@@ -43,5 +50,20 @@ class Noise:
         time = np.random.uniform()
         rot_param = self.rot_min*(1-time) + self.rot_max*time
         t_param = self.t_min*(1-time) + self.t_max*time
-        return t_param, rot_param
+        return t_param, rot_param, time
+    
+
+class NoiseSchedule:
+    def __init__(self):
+        self.time_transf = []
+        self.time_rotation = []
+
+    def set_time(self, num_nodes, time,
+            batch_size: int, device=None):
+        lig_size = num_nodes
+        self.time_transf.append(time * torch.ones(lig_size).to(device))
+        self.time_rotation.append(time * torch.ones(lig_size).to(device))
+
+    
+
     
