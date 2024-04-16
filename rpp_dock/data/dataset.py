@@ -93,3 +93,5 @@ def parse_pdb(pdb: Path) -> Data:
     edge_attr = compute_orientation_vectors(n_coordinates, ca_coordinates, c_coordinates, edge_index)
 
     return Data(pos=coordinates, edge_index=edge_index, x=residue_names, edge_attr=edge_attr)
+
+

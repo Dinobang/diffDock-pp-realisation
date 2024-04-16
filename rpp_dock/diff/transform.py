@@ -5,6 +5,17 @@ import torch.nn as
 from torch_geometric.transforms import BaseTransform
 from rpp_dock.utils.geom_utils import axis_angle_to_matrix, generate_angle
 
+class DenoiseTransform(BaseTransform):
+    def __init__(self, args):
+
+        self.noise_maker = ...
+        self.noise_sceduler = NoiseSchedule()
+
+    def forward(self, protein, t: torch.Tensor):
+        predicted_rot, predicted_t = ...
+        return protein
+        
+
 class NoiseTransform(BaseTransform):
     
     def __init__(self, args):
@@ -19,7 +30,7 @@ class NoiseTransform(BaseTransform):
     def apply_noise(self, protein, t_update=True, rot_update=True):
         t_param, rot_param, time = self.noise_maker()
 
-        self.noise_sceduler.set_time(protein.num_nodes)
+        # self.noise_sceduler.set_time(protein.num_nodes, time)
         
         if t_update: 
             tr_vec = torch.normal(mean=0, std=t_param, size=(1, 3))
@@ -27,7 +38,7 @@ class NoiseTransform(BaseTransform):
             axis_angle = generate_angle(eps=rot_param)
             axis_angle = torch.from_numpy(axis_angle)
         
-        return self.apply_updates(protein, tr_vec, axis_angle)
+        return self.apply_updates(protein, tr_vec, axis_angle), time
 
 
     def apply_updates(self, protein, tr_vec, axis_angle):
