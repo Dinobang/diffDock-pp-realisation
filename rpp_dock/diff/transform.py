@@ -67,8 +67,11 @@ class Noise:
         self.t_min, self.t_max = args['t_min'], args['t_max'] 
         self.rot_min, self.rot_max = args['rot_min'], args['rot_max'] 
 
-    def __call__(self):
-        time = np.random.uniform()
+    def __call__(self, time=None):
+        if time:
+            time = time
+        else:
+            time = np.random.uniform()
         rot_param = self.rot_min*(1-time) + self.rot_max*time
         t_param = self.t_min*(1-time) + self.t_max*time
         return t_param, rot_param, time
