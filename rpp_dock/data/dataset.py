@@ -21,7 +21,7 @@ class ReceptorLigandPair(NamedTuple):
 
 
 class ReceptorLigandDataset(Dataset):
-    def __init__(self, data_csv: Path, pdbdir: Path) -> None:
+    def __init__(self, data_csv: str, pdbdir: str) -> None:
         # NOTE: data_csv contains description of receptor and ligand pairs,
         # e.g. a pair of PDB file names
 
@@ -61,9 +61,17 @@ def parse_pdb(pdb: Path) -> Data:
         ].values
     )
 
-
+    # NOTE: здесь всё ещё аминокислотных остатков столько же,
+    # сколько атомов, есть избыточность.
+    # см выборку координат ниже, достаточно взять один атом внутри аминокислоты
+    # (например CA), как-то так:
+    # atoms_df["residue_name"][atoms_df["atom_name"].isin(["CA"])]
     residue_names = atoms_df["residue_name"]
+    # то, что ниже, рискованно: при разных запусках у аминокислот могут быть разные индексы,
+    # некоторые аминокислоты могут вообще в белке отсутствовать. лучше использовать какую-нибудь
+    # константу, где точно все аминокислоты перечислены
     residue_set = list(set(residue_names))
+    # NOTE: residue_names должен быть тензором с shape = (n_residues,)
     residue_names = [residue_set.index(res_name) for res_name in residue_names]
     
     # extract coordinates from CA-C-N atoms
@@ -91,6 +99,11 @@ def parse_pdb(pdb: Path) -> Data:
     edge_index = to_undirected(edge_index)
 
     edge_attr = compute_orientation_vectors(n_coordinates, ca_coordinates, c_coordinates, edge_index)
+
+    # FIXME: здесь я временно частично исправлю ошибку, чтобы код обучения запускался
+    residue_names = atoms_df["residue_name"][atoms_df["atom_name"].isin(["CA"])]
+    residue_set = list(set(residue_names))
+    residue_names = torch.tensor([residue_set.index(res_name) for res_name in residue_names])
 
     return Data(pos=coordinates, edge_index=edge_index, x=residue_names, edge_attr=edge_attr)
 
