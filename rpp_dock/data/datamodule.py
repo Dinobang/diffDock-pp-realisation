@@ -2,12 +2,21 @@ from pathlib import Path
 from typing import cast
 
 import lightning as L
+import torch
 from lightning.pytorch.utilities.types import TRAIN_DATALOADERS
 from torch.utils.data import DataLoader
 from torch_geometric.data import Batch, Data
 
 from rpp_dock.diff.transform import NoiseTransform
 from rpp_dock.data.dataset import ReceptorLigandDataset, ReceptorLigandPair
+
+def positions_to_file(step: int, positions : torch.Tensor, file_path: Path):
+    with open(file_path, 'w') as file:
+        file.write(f'STEP: {step}' + '\n')
+        for row in positions:
+            file.write(' '.join(map(str, row)) + '\n')
+
+
 
 
 class DataModule(L.LightningDataModule):
@@ -59,14 +68,14 @@ class DataModule(L.LightningDataModule):
         receptors = cast(list[Data], receptors)
         ligands = cast(list[Data], ligands)
 
-        #
-
-        noised_ligands, steps = self.transform(ligands)
         receptor_batch = Batch.from_data_list(receptors)
-        ligand_batch = Batch.from_data_list(noised_ligands)
+        ligand_batch = Batch.from_data_list(ligands)
+
+        positions_to_file(-1, ligand_batch.pos, 'test_positions_file.txt')
 
         # батчи получены, но в них оригинальные структуры, их ещё требуется зашумить и добавить номера шагов.
-        # Можно это сделать здесь
 
-        return receptor_batch, ligand_batch
+        noised_ligand_batch, time_steps = self.transform(ligand_batch)
+
+        return receptor_batch, noised_ligand_batch, time_steps
     

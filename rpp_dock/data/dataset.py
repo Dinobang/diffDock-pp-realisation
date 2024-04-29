@@ -4,13 +4,13 @@ from typing import NamedTuple
 import pandas as pd
 import torch
 from tqdm import tqdm
-from rpp_dock.data.constants import *
 from biopandas.pdb import PandasPdb
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
 from torch_geometric.nn import knn_graph
 from torch_geometric.utils import to_undirected
 from rpp_dock.utils.geom_utils import compute_orientation_vectors
+from rpp_dock import constants
 
 
 class ReceptorLigandPair(NamedTuple):
@@ -50,7 +50,7 @@ def parse_pdb(pdb: Path) -> Data:
     atoms_df = pandas_pdb.df["ATOM"]
 
     atoms_df = atoms_df[
-        atoms_df["residue_name"].isin(protein_letters_3to1_extended.keys())
+        atoms_df["residue_name"].isin(constants.protein_letters_3to1_extended.keys())
     ].reset_index(drop=True)
 
     # extract CA atoms positions
@@ -66,13 +66,17 @@ def parse_pdb(pdb: Path) -> Data:
     # см выборку координат ниже, достаточно взять один атом внутри аминокислоты
     # (например CA), как-то так:
     # atoms_df["residue_name"][atoms_df["atom_name"].isin(["CA"])]
-    residue_names = atoms_df["residue_name"]
+    residue_names = atoms_df["residue_name"][atoms_df["atom_name"].isin(["CA"])]
+
     # то, что ниже, рискованно: при разных запусках у аминокислот могут быть разные индексы,
     # некоторые аминокислоты могут вообще в белке отсутствовать. лучше использовать какую-нибудь
     # константу, где точно все аминокислоты перечислены
-    residue_set = list(set(residue_names))
+    residue_dict = constants.protein_letters_3to1_extended
+
     # NOTE: residue_names должен быть тензором с shape = (n_residues,)
-    residue_names = [residue_set.index(res_name) for res_name in residue_names]
+    # NOTE: у меня почему-то не получается сделать здесь тензор
+    residue_names = [residue_dict[name] for name in residue_names]
+
     
     # extract coordinates from CA-C-N atoms
 
@@ -100,10 +104,10 @@ def parse_pdb(pdb: Path) -> Data:
 
     edge_attr = compute_orientation_vectors(n_coordinates, ca_coordinates, c_coordinates, edge_index)
 
-    # FIXME: здесь я временно частично исправлю ошибку, чтобы код обучения запускался
-    residue_names = atoms_df["residue_name"][atoms_df["atom_name"].isin(["CA"])]
-    residue_set = list(set(residue_names))
-    residue_names = torch.tensor([residue_set.index(res_name) for res_name in residue_names])
+    # # FIXME: здесь я временно частично исправлю ошибку, чтобы код обучения запускался
+    # residue_names = atoms_df["residue_name"][atoms_df["atom_name"].isin(["CA"])]
+    # residue_set = list(set(residue_names))
+    # residue_names = torch.tensor([residue_set.index(res_name) for res_name in residue_names])
 
     return Data(pos=coordinates, edge_index=edge_index, x=residue_names, edge_attr=edge_attr)
 
