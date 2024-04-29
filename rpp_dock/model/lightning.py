@@ -46,10 +46,9 @@ class Denoiser(L.LightningModule):
 
         # подсчет функции потерь
         denoised_data = self.model.forward(batch)
-        # NOTE: чтобы посчитать ошибку, нужно откуда-то взять правильные значения,
-        # в батче их сейчас нет
-        # для примера создам нулевой тензор
-        true = torch.zeros_like(denoised_data)
+        
+        
+        _, _, _, true = batch
         loss = self.model.compute_loss(denoised_data, true)
 
         self.log(
@@ -74,15 +73,14 @@ class Denoiser(L.LightningModule):
         time_steps = torch.linspace(1, 0, num_steps + 1)[:-1]
 
         for t_step in range(num_steps):
-            for pair_idx, pair_graph in enumerate(self.loader):
                 if torch.cuda.is_available():
-                    pair_graph = pair_graph.cuda()
+                    batch = batch.cuda()
 
                 noiser = Noise()
-                tr_s, rot_s, tor_s = noiser(t_step)
+                tr_s, rot_s = noiser(t_step)
 
                 with torch.no_grad():
-                    output = self.model(pair_graph)
+                    output = self.model(batch)
 
                 tr_score = output["tr_pred"].cpu()
                 rot_score = output["rot_pred"].cpu()
@@ -104,11 +102,10 @@ class Denoiser(L.LightningModule):
                 rot_update = 0.5 * rot_score * cur_t * rot_g**2
 
                 # обновление
-                updates = []
-                for protein in pair_graph:
-                    new_protein = transformer.apply_updates(
-                        protein, tr_update, rot_update
+                new_batch = transformer.apply_updates(
+                        batch, tr_update, rot_update
                     )
-                    updates.append(new_protein)
+                
+                batch = new_batch
 
-        return updates
+        return batch

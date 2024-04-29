@@ -18,7 +18,6 @@ def positions_to_file(step: int, positions : torch.Tensor, file_path: Path):
 
 
 
-
 class DataModule(L.LightningDataModule):
     train_dataset: ReceptorLigandDataset
     val_dataset: ReceptorLigandDataset
@@ -74,8 +73,9 @@ class DataModule(L.LightningDataModule):
         positions_to_file(-1, ligand_batch.pos, 'test_positions_file.txt')
 
         # батчи получены, но в них оригинальные структуры, их ещё требуется зашумить и добавить номера шагов.
+        target_positions = ligand_batch.pos
 
         noised_ligand_batch, time_steps = self.transform(ligand_batch)
 
-        return receptor_batch, noised_ligand_batch, time_steps
+        return receptor_batch, noised_ligand_batch, time_steps, target_positions
     

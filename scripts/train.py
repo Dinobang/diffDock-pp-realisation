@@ -16,7 +16,7 @@ if __name__ == "__main__":
         pdbdir="structures/",
         train_csv="splits_test.csv",
         val_csv="splits_test.csv",
-        batch_size=2,
+        batch_size=4,
         transform_steps=10,
     )
     datamodule.setup("fit")
