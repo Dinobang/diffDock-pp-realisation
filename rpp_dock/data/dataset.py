@@ -29,17 +29,19 @@ class ReceptorLigandDataset(Dataset):
 
         self._data: list[ReceptorLigandPair] = []
         df = pd.read_csv(data_csv)
-        transform = NoiseTransform()
+        self.transform = NoiseTransform()
         
 
         for path in df['path']:
             ligand = parse_pdb(pdbdir + path + '_l_b.pdb')
             receptor = parse_pdb(pdbdir + path + '_r_b.pdb')
-            self._data.append(ReceptorLigandPair(receptor, transform(ligand)))
+            self._data.append(ReceptorLigandPair(receptor, ligand))
 
     def __getitem__(self, index: int) -> ReceptorLigandPair:
         if index < len(self._data):
-            return  self._data[index]
+            pair = self._data[index]
+            receptor, ligand = pair
+            return ReceptorLigandPair(receptor, self.transform(ligand))
         else:
             raise IndexError('Index out of range')
 
