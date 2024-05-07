@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from  pathlib import Path
 from torch_geometric.transforms import BaseTransform
-from rpp_dock.utils.geom_utils import axis_angle_to_matrix, generate_angle
+from rpp_dock.utils.geom_utils import score_vec, _score, score_norm, generate_angle, axis_angle_to_matrix
 
 def positions_to_file(step: int, positions : torch.Tensor, file_path: Path):
     with open(file_path, 'w') as file:
@@ -25,47 +25,51 @@ class DenoiseTransform(BaseTransform):
 
 class NoiseTransform(BaseTransform):
     
-    def __init__(self, steps: int, args=None):
+    def __init__(self, args=None):
 
         self.noise_maker = Noise(args)
         self.noise_scheduler = NoiseSchedule()
-        self.steps = steps
 
-    def __call__(self, batch):
-
-        noised_batch = self.apply_noise(batch)
-        return noised_batch, self.noise_scheduler.time_steps
+    def __call__(self, data):
+        time = np.random.uniform()
+        noised_data = self.apply_noise(data, time)
+        noised_data.time_steps = self.noise_scheduler.time_steps
+        return noised_data
 
     
-    def apply_noise(self, batch, t_update=True, rot_update=True):
-
-        for step in range(self.steps):
-            t_param, rot_param, time = self.noise_maker()
-            self.noise_scheduler.set_time(batch.num_nodes, time)
+    def apply_noise(self, data, time, t_update=True, rot_update=True):
+        data.true_pos = data.pos
+        t_param, rot_param = self.noise_maker(time)
+        self.noise_scheduler.set_time(data.num_nodes, time)
             
-            if t_update: 
-                tr_vec = torch.normal(mean=0, std=t_param, size=(1, 3))
-            if rot_update: 
-                axis_angle = generate_angle(eps=rot_param)
-                axis_angle = torch.from_numpy(axis_angle)
-            
-            noised_batch = self.apply_updates(batch, tr_vec, axis_angle)
+        if t_update: 
+            tr_vec = torch.normal(mean=0, std=t_param, size=(1, 3))
+        if rot_update: 
+            axis_angle = generate_angle(eps=rot_param)
+            axis_angle = torch.from_numpy(axis_angle)
+    
+        noised_data = self.apply_updates(data, tr_vec, axis_angle)
 
-            batch = noised_batch
+        self.get_score(data, tr_vec, t_param, axis_angle, rot_param)
 
-            positions_to_file(step, batch.pos, f'test_positions_file_{step}.txt')
+        return noised_data
+    
+    def get_score(self, data, tr_vec, t_param, axis_angle, rot_param):
 
-        return batch
+        data.tr_score = - tr_vec / t_param**2
+        data.rot_score = score_vec(vec=axis_angle, eps=rot_param).unsqueeze(0)
+
+        return data
 
 
-    def apply_updates(self, batch, tr_vec, axis_angle):
-        center = torch.mean(batch.pos, dim=0, keepdim=True)
+    def apply_updates(self, data, tr_vec, axis_angle):
+        center = torch.mean(data.pos, dim=0, keepdim=True)
         rot_mat = axis_angle_to_matrix(axis_angle.squeeze())
         rigid_new_pos = (
-            (batch.pos - center) @ rot_mat.T + tr_vec + center
+            (data.pos - center) @ rot_mat.T + tr_vec + center
         )
-        batch.pos = rigid_new_pos
-        return batch
+        data.pos = rigid_new_pos
+        return data
 
         
 class Noise:
@@ -77,13 +81,9 @@ class Noise:
         self.rot_min, self.rot_max = args['rot_min'], args['rot_max'] 
 
     def __call__(self, time=None):
-        if time:
-            time = time
-        else:
-            time = np.random.uniform()
         rot_param = self.rot_min*(1-time) + self.rot_max*time
         t_param = self.t_min*(1-time) + self.t_max*time
-        return t_param, rot_param, time
+        return t_param, rot_param
     
 
 class NoiseSchedule:

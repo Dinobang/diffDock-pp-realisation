@@ -25,5 +25,5 @@ if __name__ == "__main__":
         model=DummyDenoisingModel(),
         optimizer_fn=lambda params: torch.optim.Adam(params, lr=0.001),
     )
-    trainer = L.Trainer(max_epochs=10, logger=False, accelerator="cpu")
+    trainer = L.Trainer(max_epochs=10, logger=True, accelerator="cpu")
     trainer.fit(model, datamodule)

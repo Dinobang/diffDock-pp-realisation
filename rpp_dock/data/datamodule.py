@@ -7,7 +7,7 @@ from lightning.pytorch.utilities.types import TRAIN_DATALOADERS
 from torch.utils.data import DataLoader
 from torch_geometric.data import Batch, Data
 
-from rpp_dock.diff.transform import NoiseTransform
+
 from rpp_dock.data.dataset import ReceptorLigandDataset, ReceptorLigandPair
 
 def positions_to_file(step: int, positions : torch.Tensor, file_path: Path):
@@ -24,10 +24,9 @@ class DataModule(L.LightningDataModule):
     batch_size: int
 
     def __init__(
-        self, pdbdir: Path, train_csv: Path, val_csv: Path, batch_size: int, transform_steps: int
+        self, pdbdir: Path, train_csv: Path, val_csv: Path, batch_size: int
     ) -> None:
         super().__init__()
-        self.transform = NoiseTransform(transform_steps)
         self.pdbdir = pdbdir
         self.train_csv = train_csv
         self.batch_size = batch_size
@@ -62,7 +61,8 @@ class DataModule(L.LightningDataModule):
         # задача функции: запаковать список ReceptorLigandPair (который, по сути, просто пара объктов класса
         # torch_geometric.data.Data) в пару объектов класса torch_geometric.data.Data, где первый содержит все графы-рецепторы,
         # второй - все графы-лиганды.
-        #
+    
+        
         receptors, ligands = map(list, zip(*data_list))
         receptors = cast(list[Data], receptors)
         ligands = cast(list[Data], ligands)
@@ -70,12 +70,6 @@ class DataModule(L.LightningDataModule):
         receptor_batch = Batch.from_data_list(receptors)
         ligand_batch = Batch.from_data_list(ligands)
 
-        positions_to_file(-1, ligand_batch.pos, 'test_positions_file.txt')
 
-        # батчи получены, но в них оригинальные структуры, их ещё требуется зашумить и добавить номера шагов.
-        target_positions = ligand_batch.pos
-
-        noised_ligand_batch, time_steps = self.transform(ligand_batch)
-
-        return receptor_batch, noised_ligand_batch, time_steps, target_positions
+        return receptor_batch, ligand_batch
     

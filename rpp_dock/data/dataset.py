@@ -11,6 +11,7 @@ from torch_geometric.nn import knn_graph
 from torch_geometric.utils import to_undirected
 from rpp_dock.utils.geom_utils import compute_orientation_vectors
 from rpp_dock import constants
+from rpp_dock.diff.transform import NoiseTransform
 
 
 class ReceptorLigandPair(NamedTuple):
@@ -24,18 +25,21 @@ class ReceptorLigandDataset(Dataset):
     def __init__(self, data_csv: str, pdbdir: str) -> None:
         # NOTE: data_csv contains description of receptor and ligand pairs,
         # e.g. a pair of PDB file names
+        
 
         self._data: list[ReceptorLigandPair] = []
         df = pd.read_csv(data_csv)
+        transform = NoiseTransform()
+        
 
         for path in df['path']:
             ligand = parse_pdb(pdbdir + path + '_l_b.pdb')
             receptor = parse_pdb(pdbdir + path + '_r_b.pdb')
-            self._data.append(ReceptorLigandPair(receptor, ligand))
+            self._data.append(ReceptorLigandPair(receptor, transform(ligand)))
 
     def __getitem__(self, index: int) -> ReceptorLigandPair:
         if index < len(self._data):
-            return self._data[index]
+            return  self._data[index]
         else:
             raise IndexError('Index out of range')
 
@@ -96,7 +100,6 @@ def parse_pdb(pdb: Path) -> Data:
 
     # create KNN graph from euclidean distances
     edge_index = knn_graph(x=coordinates, k=10)
-    print(edge_index)
 
     # NOTE: edge index tensor describes directed edges, so we need to add
     # reverse edges to ensure our graph is treated as undirected
