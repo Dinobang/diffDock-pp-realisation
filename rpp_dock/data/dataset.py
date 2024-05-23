@@ -4,14 +4,28 @@ from typing import NamedTuple
 import pandas as pd
 import torch
 from tqdm import tqdm
+# try:
+#     import torch_cluster
+# except ImportError:
+#     torch_cluster = None
 from biopandas.pdb import PandasPdb
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
 from torch_geometric.nn import knn_graph
 from torch_geometric.utils import to_undirected
-from rpp_dock.utils.geom_utils import compute_orientation_vectors
-from rpp_dock import constants
+
+import sys
+import os
+from pathlib import Path
+
+import os
+import sys
+sys.path.append(os.getcwd())
+
 from rpp_dock.diff.transform import NoiseTransform
+from rpp_dock.utils.geom_utils import compute_orientation_vectors
+import rpp_dock.data.constants as constants
+
 
 
 class ReceptorLigandPair(NamedTuple):

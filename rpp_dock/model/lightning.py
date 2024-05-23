@@ -47,7 +47,7 @@ class Denoiser(L.LightningModule):
         # подсчет функции потерь
         denoised_data = self.model.forward(batch)
         
-        
+        # получение правильных значений из батча
         _, _, _, true = batch
         loss = self.model.compute_loss(denoised_data, true)
 
@@ -65,8 +65,7 @@ class Denoiser(L.LightningModule):
     def sample(self, batch: tuple[Data, Data], num_steps: int, args) -> Any:
         # будем использовать этот метод,чтобы получать правильные положения белка-рецептора,
         # т.е. реализуем алгоритм алгоритм семплинга из диффузионной модели
-        # NOTE: ниже идёт цикл по батчам в self.loader - это не нужно,
-        # задача этого метода - обработать один батч
+        # NOTE: убрала итерацию по loader и по батчу
 
         self.model.eval()
         transformer = NoiseTransform(steps=num_steps)

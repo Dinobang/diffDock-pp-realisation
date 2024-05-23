@@ -167,12 +167,14 @@ def _score(exp, omega, eps, L=2000):  # score of density over SO(3)
     return dSigma / exp
 
 
-if os.path.exists(".so3_omegas_array2.npy"):
-    _omegas_array = np.load(".so3_omegas_array2.npy")
-    _cdf_vals = np.load(".so3_cdf_vals2.npy")
-    _score_norms = np.load(".so3_score_norms2.npy")
-    _exp_score_norms = np.load(".so3_exp_score_norms2.npy")
+if os.path.exists("C:/Users/Пуся/Desktop/spbu/mcs_prac/mcs_prac/notebooks/.so3_omegas_array2.npy"):
+    print('exist')
+    _omegas_array = np.load("C:/Users/Пуся/Desktop/spbu/mcs_prac/mcs_prac/notebooks/.so3_omegas_array2.npy")
+    _cdf_vals = np.load("C:/Users/Пуся/Desktop/spbu/mcs_prac/mcs_prac/notebooks/.so3_cdf_vals2.npy")
+    _score_norms = np.load("C:/Users/Пуся/Desktop/spbu/mcs_prac/mcs_prac/notebooks/.so3_score_norms2.npy")
+    _exp_score_norms = np.load("C:/Users/Пуся/Desktop/spbu/mcs_prac/mcs_prac/notebooks/.so3_exp_score_norms2.npy")
 else:
+    print('not exist')
     _eps_array = 10 ** np.linspace(np.log10(MIN_EPS), np.log10(MAX_EPS), N_EPS)
     _omegas_array = np.linspace(0, np.pi, X_N + 1)[1:]
 

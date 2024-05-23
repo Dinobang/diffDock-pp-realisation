@@ -2,11 +2,17 @@ from pathlib import Path
 from typing import cast
 
 import lightning as L
+import os 
+import sys
+
 import torch
 from lightning.pytorch.utilities.types import TRAIN_DATALOADERS
 from torch.utils.data import DataLoader
 from torch_geometric.data import Batch, Data
 
+from pathlib import Path
+
+sys.path.append(str(Path.cwd()))
 
 from rpp_dock.data.dataset import ReceptorLigandDataset, ReceptorLigandPair
 
