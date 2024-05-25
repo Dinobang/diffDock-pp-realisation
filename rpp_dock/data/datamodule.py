@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import cast
 
 import lightning as L
-import os 
+import os
 import sys
 
 import torch
@@ -14,14 +14,14 @@ from pathlib import Path
 
 sys.path.append(str(Path.cwd()))
 
-from rpp_dock.data.dataset import ReceptorLigandDataset, ReceptorLigandPair
+from mcs_prac.rpp_dock.data.dataset import ReceptorLigandDataset, ReceptorLigandPair
 
-def positions_to_file(step: int, positions : torch.Tensor, file_path: Path):
+
+def positions_to_file(step: int, positions: torch.Tensor, file_path: Path):
     with open(file_path, 'w') as file:
         file.write(f'STEP: {step}' + '\n')
         for row in positions:
             file.write(' '.join(map(str, row)) + '\n')
-
 
 
 class DataModule(L.LightningDataModule):
@@ -30,7 +30,7 @@ class DataModule(L.LightningDataModule):
     batch_size: int
 
     def __init__(
-        self, pdbdir: Path, train_csv: Path, val_csv: Path, batch_size: int
+            self, pdbdir, train_csv, val_csv, batch_size: int
     ) -> None:
         super().__init__()
         self.pdbdir = pdbdir
@@ -62,13 +62,9 @@ class DataModule(L.LightningDataModule):
             shuffle=False,
             collate_fn=self.collate_fn,
         )
-    
-    def collate_fn(self, data_list: list[ReceptorLigandPair]) -> tuple[Data, Data]:
-        # задача функции: запаковать список ReceptorLigandPair (который, по сути, просто пара объктов класса
-        # torch_geometric.data.Data) в пару объектов класса torch_geometric.data.Data, где первый содержит все графы-рецепторы,
-        # второй - все графы-лиганды.
-    
-        
+
+    def collate_fn(self, data_list: list[ReceptorLigandPair]) -> tuple[Batch, Batch]:
+
         receptors, ligands = map(list, zip(*data_list))
         receptors = cast(list[Data], receptors)
         ligands = cast(list[Data], ligands)
@@ -76,6 +72,4 @@ class DataModule(L.LightningDataModule):
         receptor_batch = Batch.from_data_list(receptors)
         ligand_batch = Batch.from_data_list(ligands)
 
-
         return receptor_batch, ligand_batch
-    

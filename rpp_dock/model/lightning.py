@@ -7,7 +7,7 @@ from torch.optim import Optimizer
 from torch_geometric.data import Data
 from tqdm import tqdm
 
-from rpp_dock.diff.transform import Noise, NoiseTransform
+from mcs_prac.rpp_dock.diff.transform import Noise, NoiseTransform
 
 
 class DenoisingModel(Protocol):
@@ -27,9 +27,9 @@ class DenoisingModel(Protocol):
 
 class Denoiser(L.LightningModule):
     def __init__(
-        self,
-        model: DenoisingModel,
-        optimizer_fn: Callable[[Iterator[torch.nn.Parameter]], Optimizer],
+            self,
+            model: DenoisingModel,
+            optimizer_fn: Callable[[Iterator[torch.nn.Parameter]], Optimizer],
     ) -> None:
         super().__init__()
         self.model = model
@@ -39,17 +39,17 @@ class Denoiser(L.LightningModule):
         return self.optimizer
 
     def training_step(
-        self, batch: tuple[Data, Data], batch_idx: int
+            self, batch: tuple[Data, Data], batch_idx: int
     ) -> Tensor | Mapping[str, Any] | None:
         # здесь мы описываем, что нужно сделать с пришедшим батчем в процессе обучения
         # т.е. реализуем алгоритм обучения из статьи про диффузионные модели
 
         # подсчет функции потерь
-        denoised_data = self.model.forward(batch)
-        
+        outputs = self.model.forward(batch)
+
         # получение правильных значений из батча
-        _, _, _, true = batch
-        loss = self.model.compute_loss(denoised_data, true)
+        _, ligands = batch
+        loss = self.model.compute_loss(outputs, ligands)
 
         self.log(
             "train/loss",
@@ -68,43 +68,43 @@ class Denoiser(L.LightningModule):
         # NOTE: убрала итерацию по loader и по батчу
 
         self.model.eval()
-        transformer = NoiseTransform(steps=num_steps)
+        transformer = NoiseTransform()
         time_steps = torch.linspace(1, 0, num_steps + 1)[:-1]
 
         for t_step in range(num_steps):
-                if torch.cuda.is_available():
-                    batch = batch.cuda()
+            if torch.cuda.is_available():
+                batch = batch.cuda()
 
-                noiser = Noise()
-                tr_s, rot_s = noiser(t_step)
+            noiser = Noise()
+            tr_s, rot_s = noiser(t_step)
 
-                with torch.no_grad():
-                    output = self.model(batch)
+            with torch.no_grad():
+                output = self.model(batch)
 
-                tr_score = output["tr_pred"].cpu()
-                rot_score = output["rot_pred"].cpu()
+            tr_score = output["tr_pred"].cpu()
+            rot_score = output["rot_pred"].cpu()
 
-                # градиенты
-                tr_scale = torch.sqrt(
-                    2 * torch.log(torch.tensor(args.tr_s_max / args.tr_s_min))
-                )
-                tr_g = tr_s * tr_scale
+            # градиенты
+            tr_scale = torch.sqrt(
+                2 * torch.log(torch.tensor(args.tr_s_max / args.tr_s_min))
+            )
+            tr_g = tr_s * tr_scale
 
-                rot_scale = torch.sqrt(
-                    torch.log(torch.tensor(args.rot_s_max / args.rot_s_min))
-                )
-                rot_g = 2 * rot_s * rot_scale
+            rot_scale = torch.sqrt(
+                torch.log(torch.tensor(args.rot_s_max / args.rot_s_min))
+            )
+            rot_g = 2 * rot_s * rot_scale
 
-                # пересчет
-                cur_t = time_steps[t_step]
-                tr_update = 0.5 * tr_g**2 * cur_t * tr_score
-                rot_update = 0.5 * rot_score * cur_t * rot_g**2
+            # пересчет
+            cur_t = time_steps[t_step]
+            tr_update = 0.5 * tr_g ** 2 * cur_t * tr_score
+            rot_update = 0.5 * rot_score * cur_t * rot_g ** 2
 
-                # обновление
-                new_batch = transformer.apply_updates(
-                        batch, tr_update, rot_update
-                    )
-                
-                batch = new_batch
+            # обновление
+            new_batch = transformer.apply_updates(
+                batch, tr_update, rot_update
+            )
+
+            batch = new_batch
 
         return batch

@@ -3,29 +3,21 @@ from typing import NamedTuple
 
 import pandas as pd
 import torch
-from tqdm import tqdm
-# try:
-#     import torch_cluster
-# except ImportError:
-#     torch_cluster = None
+
 from biopandas.pdb import PandasPdb
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
 from torch_geometric.nn import knn_graph
 from torch_geometric.utils import to_undirected
 
-import sys
 import os
-from pathlib import Path
+import sys
 
-import os
-import sys
 sys.path.append(os.getcwd())
 
-from rpp_dock.diff.transform import NoiseTransform
-from rpp_dock.utils.geom_utils import compute_orientation_vectors
-import rpp_dock.data.constants as constants
-
+from mcs_prac.rpp_dock.diff.transform import NoiseTransform
+from mcs_prac.rpp_dock.utils.geom_utils import compute_orientation_vectors
+import mcs_prac.rpp_dock.data.constants as constants
 
 
 class ReceptorLigandPair(NamedTuple):
@@ -39,12 +31,10 @@ class ReceptorLigandDataset(Dataset):
     def __init__(self, data_csv: str, pdbdir: str) -> None:
         # NOTE: data_csv contains description of receptor and ligand pairs,
         # e.g. a pair of PDB file names
-        
 
         self._data: list[ReceptorLigandPair] = []
         df = pd.read_csv(data_csv)
         self.transform = NoiseTransform()
-        
 
         for path in df['path']:
             ligand = parse_pdb(pdbdir + path + '_l_b.pdb')
@@ -61,8 +51,6 @@ class ReceptorLigandDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self._data)
-    
-
 
 
 def parse_pdb(pdb: Path) -> Data:
@@ -81,37 +69,20 @@ def parse_pdb(pdb: Path) -> Data:
         ].values
     )
 
-    # NOTE: здесь всё ещё аминокислотных остатков столько же,
-    # сколько атомов, есть избыточность.
-    # см выборку координат ниже, достаточно взять один атом внутри аминокислоты
-    # (например CA), как-то так:
-    # atoms_df["residue_name"][atoms_df["atom_name"].isin(["CA"])]
-    residue_names = atoms_df["residue_name"][atoms_df["atom_name"].isin(["CA"])]
-
-    # то, что ниже, рискованно: при разных запусках у аминокислот могут быть разные индексы,
-    # некоторые аминокислоты могут вообще в белке отсутствовать. лучше использовать какую-нибудь
-    # константу, где точно все аминокислоты перечислены
-    residue_dict = constants.protein_letters_3to1_extended
-
-    # NOTE: residue_names должен быть тензором с shape = (n_residues,)
-    # NOTE: у меня почему-то не получается сделать здесь тензор
-    residue_names = [residue_dict[name] for name in residue_names]
-
-    
     # extract coordinates from CA-C-N atoms
 
     n_coordinates = torch.tensor(atoms_df[["x_coord", "y_coord", "z_coord"]][
-            atoms_df["atom_name"].isin(["N"])
-        ].values)
-    
+                                     atoms_df["atom_name"].isin(["N"])
+                                 ].values)
+
     ca_coordinates = torch.tensor(atoms_df[["x_coord", "y_coord", "z_coord"]][
-            atoms_df["atom_name"].isin(["CA"])
-        ].values)
-    
+                                      atoms_df["atom_name"].isin(["CA"])
+                                  ].values)
+
     c_coordinates = torch.tensor(atoms_df[["x_coord", "y_coord", "z_coord"]][
-            atoms_df["atom_name"].isin(["C"])
-        ].values)
-    
+                                     atoms_df["atom_name"].isin(["C"])
+                                 ].values)
+
     assert len(n_coordinates) == len(ca_coordinates) == len(c_coordinates)
 
     # create KNN graph from euclidean distances
@@ -123,11 +94,8 @@ def parse_pdb(pdb: Path) -> Data:
 
     edge_attr = compute_orientation_vectors(n_coordinates, ca_coordinates, c_coordinates, edge_index)
 
-    # # FIXME: здесь я временно частично исправлю ошибку, чтобы код обучения запускался
-    # residue_names = atoms_df["residue_name"][atoms_df["atom_name"].isin(["CA"])]
-    # residue_set = list(set(residue_names))
-    # residue_names = torch.tensor([residue_set.index(res_name) for res_name in residue_names])
+    residue_names = atoms_df["residue_name"][atoms_df["atom_name"].isin(["CA"])]
+    residue_list = list(set(constants.protein_letters_3to1_extended.keys()))
+    residue_names = torch.tensor([residue_list.index(res_name) for res_name in residue_names])
 
     return Data(pos=coordinates, edge_index=edge_index, x=residue_names, edge_attr=edge_attr)
-
-

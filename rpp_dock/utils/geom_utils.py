@@ -1,12 +1,11 @@
-import torch
 from tqdm import tqdm
-import math
+import os
 import numpy as np
-
+import torch
+from scipy.spatial.transform import Rotation
 
 
 def compute_orientation_vectors(n_coordinates, ca_coordinates, c_coordinates, edge_index):
-
     # T = [SO3 p]
     #     [ 0  1] 
 
@@ -15,33 +14,32 @@ def compute_orientation_vectors(n_coordinates, ca_coordinates, c_coordinates, ed
     n_i = torch.cross(u_i, t_i) / torch.linalg.norm(torch.cross(u_i, t_i))
     v_i = torch.cross(n_i, u_i)
 
-
     edge_attr = []
 
     for i in tqdm(range(len(edge_index[0]))):
-
         src, dst = edge_index[0][i], edge_index[1][i]
         src_u_i, dst_u_i = u_i[src, :], u_i[dst, :]
         src_v_i, dst_v_i = v_i[src, :], v_i[dst, :]
         src_n_i, dst_n_i = n_i[src, :], n_i[dst, :]
 
         T1 = torch.stack(
-                          (torch.cat((src_n_i, ca_coordinates[src][0].unsqueeze(dim=0))), 
-                          torch.cat((src_u_i, ca_coordinates[src][1].unsqueeze(dim=0))),
-                          torch.cat((src_v_i, ca_coordinates[src][2].unsqueeze(dim=0))), 
-                          torch.tensor([0, 0, 0, 1]))
-                        )
-        
+            (torch.cat((src_n_i, ca_coordinates[src][0].unsqueeze(dim=0))),
+             torch.cat((src_u_i, ca_coordinates[src][1].unsqueeze(dim=0))),
+             torch.cat((src_v_i, ca_coordinates[src][2].unsqueeze(dim=0))),
+             torch.tensor([0, 0, 0, 1]))
+        )
+
         T2 = torch.stack(
-                          (torch.cat((dst_n_i, ca_coordinates[dst][0].unsqueeze(dim=0))), 
-                          torch.cat((dst_u_i, ca_coordinates[dst][1].unsqueeze(dim=0))),
-                          torch.cat((dst_v_i, ca_coordinates[dst][2].unsqueeze(dim=0))), 
-                          torch.tensor([0, 0, 0, 1]))
-                        )
-    
+            (torch.cat((dst_n_i, ca_coordinates[dst][0].unsqueeze(dim=0))),
+             torch.cat((dst_u_i, ca_coordinates[dst][1].unsqueeze(dim=0))),
+             torch.cat((dst_v_i, ca_coordinates[dst][2].unsqueeze(dim=0))),
+             torch.tensor([0, 0, 0, 1]))
+        )
+
         edge_attr.append(torch.linalg.inv(T1) @ T2)
-    
+
     return edge_attr
+
 
 def quaternion_to_matrix(quaternions):
     """
@@ -87,12 +85,12 @@ def axis_angle_to_quaternion(axis_angle):
     small_angles = angles.abs() < eps
     sin_half_angles_over_angles = torch.empty_like(angles)
     sin_half_angles_over_angles[~small_angles] = (
-        torch.sin(half_angles[~small_angles]) / angles[~small_angles]
+            torch.sin(half_angles[~small_angles]) / angles[~small_angles]
     )
     # for x small, sin(x/2) is about x/2 - (x/2)^3/6
     # so sin(x/2)/x is about 1/2 - (x*x)/48
     sin_half_angles_over_angles[small_angles] = (
-        0.5 - (angles[small_angles] * angles[small_angles]) / 48
+            0.5 - (angles[small_angles] * angles[small_angles]) / 48
     )
     quaternions = torch.cat(
         [torch.cos(half_angles), axis_angle * sin_half_angles_over_angles], dim=-1
@@ -110,12 +108,6 @@ def axis_angle_to_matrix(axis_angle):
 
 
 
-
-import os
-import numpy as np
-import torch
-from scipy.spatial.transform import Rotation
-
 MIN_EPS, MAX_EPS, N_EPS = 0.01, 2, 2000
 X_N = 2000
 
@@ -132,22 +124,22 @@ def _expansion(omega, eps, L=2000):  # the summation term only
     p = 0
     for l in range(L):
         p += (
-            (2 * l + 1)
-            * np.exp(-l * (l + 1) * eps**2)
-            * np.sin(omega * (l + 1 / 2))
-            / np.sin(omega / 2)
+                (2 * l + 1)
+                * np.exp(-l * (l + 1) * eps ** 2)
+                * np.sin(omega * (l + 1 / 2))
+                / np.sin(omega / 2)
         )
     return p
 
 
 def _density(
-    expansion, omega, marginal=True
+        expansion, omega, marginal=True
 ):  # if marginal, density over [0, pi], else over SO(3)
     if marginal:
         return expansion * (1 - np.cos(omega)) / np.pi
     else:
         return (
-            expansion / 8 / np.pi**2
+                expansion / 8 / np.pi ** 2
         )  # the constant factor doesn't affect any actual calculations though
 
 
@@ -159,20 +151,20 @@ def _score(exp, omega, eps, L=2000):  # score of density over SO(3)
         lo = np.sin(omega / 2)
         dlo = 1 / 2 * np.cos(omega / 2)
         dSigma += (
-            (2 * l + 1)
-            * np.exp(-l * (l + 1) * eps**2)
-            * (lo * dhi - hi * dlo)
-            / lo**2
+                (2 * l + 1)
+                * np.exp(-l * (l + 1) * eps ** 2)
+                * (lo * dhi - hi * dlo)
+                / lo ** 2
         )
     return dSigma / exp
 
 
-if os.path.exists("C:/Users/Пуся/Desktop/spbu/mcs_prac/mcs_prac/notebooks/.so3_omegas_array2.npy"):
+if os.path.exists("../rpp_dock/so3/.so3_score_norms2.npy"):
     print('exist')
-    _omegas_array = np.load("C:/Users/Пуся/Desktop/spbu/mcs_prac/mcs_prac/notebooks/.so3_omegas_array2.npy")
-    _cdf_vals = np.load("C:/Users/Пуся/Desktop/spbu/mcs_prac/mcs_prac/notebooks/.so3_cdf_vals2.npy")
-    _score_norms = np.load("C:/Users/Пуся/Desktop/spbu/mcs_prac/mcs_prac/notebooks/.so3_score_norms2.npy")
-    _exp_score_norms = np.load("C:/Users/Пуся/Desktop/spbu/mcs_prac/mcs_prac/notebooks/.so3_exp_score_norms2.npy")
+    _omegas_array = np.load("../rpp_dock/so3/.so3_omegas_array2.npy")
+    _cdf_vals = np.load("../rpp_dock/so3/.so3_cdf_vals2.npy")
+    _score_norms = np.load("../rpp_dock/so3/.so3_score_norms2.npy")
+    _exp_score_norms = np.load("../rpp_dock/so3/.so3_exp_score_norms2.npy")
 else:
     print('not exist')
     _eps_array = 10 ** np.linspace(np.log10(MIN_EPS), np.log10(MAX_EPS), N_EPS)
@@ -191,7 +183,7 @@ else:
     )
 
     _exp_score_norms = np.sqrt(
-        np.sum(_score_norms**2 * _pdf_vals, axis=1)
+        np.sum(_score_norms ** 2 * _pdf_vals, axis=1)
         / np.sum(_pdf_vals, axis=1)
         / np.pi
     )
@@ -204,9 +196,9 @@ else:
 
 def sample(eps):
     eps_idx = (
-        (np.log10(eps) - np.log10(MIN_EPS))
-        / (np.log10(MAX_EPS) - np.log10(MIN_EPS))
-        * N_EPS
+            (np.log10(eps) - np.log10(MIN_EPS))
+            / (np.log10(MAX_EPS) - np.log10(MIN_EPS))
+            * N_EPS
     )
     eps_idx = np.clip(np.around(eps_idx).astype(int), a_min=0, a_max=N_EPS - 1)
 
@@ -222,9 +214,9 @@ def generate_angle(eps):
 
 def score_vec(eps, vec):
     eps_idx = (
-        (np.log10(eps) - np.log10(MIN_EPS))
-        / (np.log10(MAX_EPS) - np.log10(MIN_EPS))
-        * N_EPS
+            (np.log10(eps) - np.log10(MIN_EPS))
+            / (np.log10(MAX_EPS) - np.log10(MIN_EPS))
+            * N_EPS
     )
     eps_idx = np.clip(np.around(eps_idx).astype(int), a_min=0, a_max=N_EPS - 1)
 
@@ -238,16 +230,14 @@ def score_norm(eps):
         eps = eps.cpu()
     else:
         device = None
-    eps = eps.numpy()
+    # eps = eps.numpy()
     eps_idx = (
-        (np.log10(eps) - np.log10(MIN_EPS))
-        / (np.log10(MAX_EPS) - np.log10(MIN_EPS))
-        * N_EPS
+            (np.log10(eps) - np.log10(MIN_EPS))
+            / (np.log10(MAX_EPS) - np.log10(MIN_EPS))
+            * N_EPS
     )
     eps_idx = np.clip(np.around(eps_idx).astype(int), a_min=0, a_max=N_EPS - 1)
     norm = torch.from_numpy(_exp_score_norms[eps_idx]).float()
     if device is not None:
         norm = norm.to(device)
     return norm
-
-
