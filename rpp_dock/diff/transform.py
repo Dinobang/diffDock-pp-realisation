@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from pathlib import Path
 from torch_geometric.transforms import BaseTransform
-from mcs_prac.rpp_dock.utils.geom_utils import score_vec, generate_angle, axis_angle_to_matrix
+from rpp_dock.utils.geom_utils import score_vec, generate_angle, axis_angle_to_matrix
 
 
 def positions_to_file(step: int, positions: torch.Tensor, file_path: Path):

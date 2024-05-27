@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.append(str(Path.cwd()))
 
-from mcs_prac.rpp_dock.data.dataset import ReceptorLigandDataset, ReceptorLigandPair
+from rpp_dock.data.dataset import ReceptorLigandDataset, ReceptorLigandPair
 
 
 def positions_to_file(step: int, positions: torch.Tensor, file_path: Path):

@@ -7,7 +7,7 @@ from torch.optim import Optimizer
 from torch_geometric.data import Data
 from tqdm import tqdm
 
-from mcs_prac.rpp_dock.diff.transform import Noise, NoiseTransform
+from rpp_dock.diff.transform import Noise, NoiseTransform
 
 
 class DenoisingModel(Protocol):

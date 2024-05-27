@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from mcs_prac.rpp_dock.diff.transform import Noise
-from mcs_prac.rpp_dock.utils.geom_utils import score_norm
+from rpp_dock.diff.transform import Noise
+from rpp_dock.utils.geom_utils import score_norm
 
 
 class Loss(nn.Module):

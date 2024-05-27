@@ -4,7 +4,7 @@ from torch_geometric.data import Data
 from torch_geometric.nn import global_mean_pool
 from torch_geometric.nn.models import GCN
 
-from mcs_prac.rpp_dock.loss.losses import Loss
+from rpp_dock.loss.losses import Loss
 
 
 class DummyDenoisingModel(nn.Module):

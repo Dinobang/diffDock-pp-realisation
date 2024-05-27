@@ -15,9 +15,9 @@ import sys
 
 sys.path.append(os.getcwd())
 
-from mcs_prac.rpp_dock.diff.transform import NoiseTransform
-from mcs_prac.rpp_dock.utils.geom_utils import compute_orientation_vectors
-import mcs_prac.rpp_dock.data.constants as constants
+from rpp_dock.diff.transform import NoiseTransform
+from rpp_dock.utils.geom_utils import compute_orientation_vectors
+import rpp_dock.data.constants as constants
 
 
 class ReceptorLigandPair(NamedTuple):
