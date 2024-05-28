@@ -31,4 +31,4 @@ class Loss(nn.Module):
 
         loss = tr_loss + rot_loss
 
-        return loss
+        return loss.mean()
