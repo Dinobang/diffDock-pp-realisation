@@ -14,7 +14,6 @@ class Loss(nn.Module):
 
     def forward(self, data, outputs):
         eps = 4e-3
-
         t_pred, rot_pred = outputs
         current_t = data.time_steps
         tr, rot = self.noise_scheduler(current_t)

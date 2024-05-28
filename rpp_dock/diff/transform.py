@@ -25,22 +25,19 @@ class DenoiseTransform(BaseTransform):
 
 
 class NoiseTransform(BaseTransform):
-
     def __init__(self, args=None):
-
         self.noise_maker = Noise(args)
         self.noise_scheduler = NoiseSchedule()
 
     def __call__(self, data):
         time = np.random.uniform()
         noised_data = self.apply_noise(data, time)
-        noised_data.time_steps = self.noise_scheduler.time_steps
+        self.noise_scheduler.set_time(noised_data, time)
         return noised_data
 
     def apply_noise(self, data, time, t_update=True, rot_update=True):
         data.true_pos = data.pos
         t_param, rot_param = self.noise_maker(time)
-        self.noise_scheduler.set_time(data.num_nodes, time)
 
         if t_update:
             tr_vec = torch.normal(mean=0, std=t_param, size=(1, 3))
@@ -86,8 +83,5 @@ class Noise:
 
 
 class NoiseSchedule:
-    def __init__(self):
-        self.time_steps = []
-
-    def set_time(self, num_nodes, time):
-        self.time_steps.append(time)
+    def set_time(self, data, time):
+        data.time_steps.append(time)
