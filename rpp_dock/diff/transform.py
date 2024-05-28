@@ -84,4 +84,4 @@ class Noise:
 
 class NoiseSchedule:
     def set_time(self, data, time):
-        data.time_steps.append(time)
+        data.time_steps = time

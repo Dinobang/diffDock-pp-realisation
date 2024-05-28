@@ -98,4 +98,4 @@ def parse_pdb(pdb: Path) -> Data:
     residue_list = list(set(constants.protein_letters_3to1_extended.keys()))
     residue_names = torch.tensor([residue_list.index(res_name) for res_name in residue_names])
 
-    return Data(pos=coordinates, edge_index=edge_index, x=residue_names, edge_attr=edge_attr, time_steps=[])
+    return Data(pos=coordinates, edge_index=edge_index, x=residue_names, edge_attr=edge_attr)

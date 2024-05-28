@@ -236,7 +236,9 @@ def score_norm(eps):
             / (np.log10(MAX_EPS) - np.log10(MIN_EPS))
             * N_EPS
     )
-    eps_idx = np.clip(np.around(eps_idx).astype(int), a_min=0, a_max=N_EPS - 1)
+
+    eps_idx = np.clip(np.around(eps_idx), a_min=0, a_max=N_EPS - 1)
+    eps_idx = eps_idx.type(torch.int64)
     norm = torch.from_numpy(_exp_score_norms[eps_idx]).float()
     if device is not None:
         norm = norm.to(device)

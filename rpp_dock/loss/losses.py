@@ -21,7 +21,7 @@ class Loss(nn.Module):
         tr_right = data.tr_score
         rot_right = data.rot_score
 
-        # tr = tr.squeeze(-1)
+        tr = tr.unsqueeze(-1)
         rot_score_norm = score_norm(rot).unsqueeze(-1)
 
         tr_loss = ((t_pred - tr_right) ** 2 * tr ** 2).mean(dim=1)
